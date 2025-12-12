@@ -58,7 +58,7 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <vector>
 #include <iostream>
-
+#include <cmath>
 #include "ORBextractor.h"
 
 
@@ -808,7 +808,9 @@ namespace ORB_SLAM3
             float saliency = 1.0f;
             if (max_depth > 0)
             {
-                saliency = static_cast<float>(lit->depth + 1) / (max_depth + 1);
+                //saliency = static_cast<float>(lit->depth + 1) / (max_depth + 1);
+                //saliency = 4*atan(static_cast<float>(lit->depth)) / (M_PI / 2.0f);
+                saliency = static_cast<float>(lit->depth);
             }
             vSaliency.push_back(saliency);
 #endif
@@ -847,7 +849,7 @@ namespace ORB_SLAM3
             const int nRows = height/W;
             const int wCell = ceil(width/nCols);
             const int hCell = ceil(height/nRows);
-
+            //cout << "Pyramid_level=" << level << " width=" << width << " height=" << height << endl;
             for(int i=0; i<nRows; i++)
             {
                 const float iniY =minBorderY+i*hCell;

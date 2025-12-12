@@ -851,7 +851,10 @@ int Optimizer::PoseOptimization(Frame *pFrame)
 
     const float deltaMono = sqrt(5.991);
     const float deltaStereo = sqrt(7.815);
-
+#ifdef USE_SALIENCY
+    float coeficient_spatial = 0.1;
+    //cout << "coeficient_spatial: " << coeficient_spatial << endl;
+#endif
     {
     unique_lock<mutex> lock(MapPoint::mGlobalMutex);
 
@@ -906,7 +909,13 @@ int Optimizer::PoseOptimization(Frame *pFrame)
                     e->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(0)));
                     e->setMeasurement(obs);
                     const float invSigma2 = pFrame->mvInvLevelSigma2[kpUn.octave];
-                    Eigen::Matrix3d Info = Eigen::Matrix3d::Identity()*invSigma2;
+#ifdef USE_SALIENCY
+                    float weight = 1.0f + coeficient_spatial * pFrame->mvSaliencySpatial[i] * pFrame->mvSaliencySpatial[i];
+                    Eigen::Matrix3d Info = Eigen::Matrix3d::Identity() * invSigma2 * weight;
+                    
+#else
+                    Eigen::Matrix3d Info = Eigen::Matrix3d::Identity() * invSigma2;
+#endif
                     e->setInformation(Info);
 
                     g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
@@ -1297,9 +1306,9 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
         {
             KeyFrame* pKFi = mit->first;
 #ifdef USE_SALIENCY
-            // 1. 获取时间显著性 S_temporal (基于观测次数)
+            // Get S_temporal (Based on number of observations)
             float weight_temporal = 1.0f;
-            const int nObs = pMP->Observations(); // <-- 这就是获取观测次数的方法
+            const int nObs = pMP->Observations(); 
             const int maxObs = 200;
             const int minObs = 5;
             if (nObs < minObs)
@@ -1308,22 +1317,21 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
             }
             else
             {
-                // 使用您报告中的归一化指数函数
-                // float alpha = 0.5f; // 可调参数
+                // float alpha = 0.5f; 
                 // weight_temporal = exp(alpha * (static_cast<float>(std::min(nObs, maxObs)) - maxObs) / maxObs);
-                // 或者使用更简单的线性函数
                 weight_temporal = 0.1f + 0.9f * (static_cast<float>(std::min(nObs, maxObs) - minObs) / (maxObs - minObs));
             }
             weight_temporal = std::max(0.1f, weight_temporal);
 
-            // 2. 获取空间显著性 S_spatial (从MapPoint成员获取)
+            // Get S_spatial (Based on saliency value)
             float weight_spatial = pMP->mfSaliencySpatial;
-            weight_spatial = std::max(0.1f, weight_spatial); // 保证最小权重
+            weight_spatial = std::max(0.1f, weight_spatial); 
 
-            // 3. 融合权重 (这里使用乘法进行融合)
-            float final_weight = weight_temporal * weight_spatial;
+            // Merge weights
+            float final_weight = weight_spatial;
+            // float final_weight = weight_temporal * weight_spatial;
 #else
-            float final_weight = 1.0f; // 默认权重为1
+            float final_weight = 1.0f; // No saliency
 #endif
             if(!pKFi->isBad() && pKFi->GetMap() == pCurrentMap)
             {
