@@ -181,7 +181,11 @@ int main(int argc, char **argv)
         SLAM.SaveTrajectoryEuRoC("CameraTrajectory.txt");
         SLAM.SaveKeyFrameTrajectoryEuRoC("KeyFrameTrajectory.txt");
     }
-
+#ifdef USE_SALIENCY
+    cout<< "USE DIS-SLAM!!!"<<endl;
+#else  
+    cout<< "USE ORB-SLAM3!!!"<<endl;
+#endif
     return 0;
 }
 

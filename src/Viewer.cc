@@ -164,7 +164,11 @@ void Viewer::Run()
     mbFinished = false;
     mbStopped = false;
 
-    pangolin::CreateWindowAndBind("ORB-SLAM3: Map Viewer",1024,768);
+#ifdef USE_SALIENCY
+    pangolin::CreateWindowAndBind("DIS-SLAM: Map Viewer", 1024, 768);
+#else
+    pangolin::CreateWindowAndBind("ORB-SLAM3: Map Viewer", 1024, 768);
+#endif
 
     // 3D Mouse handler requires depth testing to be enabled
     glEnable(GL_DEPTH_TEST);
@@ -204,7 +208,11 @@ void Viewer::Run()
     Twc.SetIdentity();
     pangolin::OpenGlMatrix Ow; // Oriented with g in the z axis
     Ow.SetIdentity();
+#ifdef USE_SALIENCY
+    cv::namedWindow("DIS-SLAM: Current Frame");
+#else
     cv::namedWindow("ORB-SLAM3: Current Frame");
+#endif
 
     bool bFollow = true;
     bool bLocalizationMode = false;
@@ -334,8 +342,11 @@ void Viewer::Run()
             int height = toShow.rows * mImageViewerScale;
             cv::resize(toShow, toShow, cv::Size(width, height));
         }
-
-        cv::imshow("ORB-SLAM3: Current Frame",toShow);
+#ifdef USE_SALIENCY
+        cv::imshow("DIS-SLAM: Current Frame", toShow);
+#else
+        cv::imshow("ORB-SLAM3: Current Frame", toShow);
+#endif
         cv::waitKey(mT);
 
         if(menuReset)
