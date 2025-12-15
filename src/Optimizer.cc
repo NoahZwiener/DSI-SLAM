@@ -1328,7 +1328,7 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
             weight_spatial = std::max(0.1f, weight_spatial); 
 
             // Merge weights
-            float final_weight = weight_spatial;
+            float final_weight = 1.0f + 0.2f * weight_spatial * weight_spatial;
             // float final_weight = weight_temporal * weight_spatial;
 #else
             float final_weight = 1.0f; // No saliency
