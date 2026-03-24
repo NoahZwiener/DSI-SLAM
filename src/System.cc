@@ -32,6 +32,7 @@
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/xml_iarchive.hpp>
 #include <boost/archive/xml_oarchive.hpp>
+#include <mutex>
 
 namespace ORB_SLAM3
 {
@@ -473,7 +474,24 @@ Sophus::SE3f System::TrackMonocular(const cv::Mat &im, const double &timestamp, 
     return Tcw;
 }
 
+// 定义互斥锁
+std::mutex mMutexSystem;
+#ifdef USE_SALIENCY_EKF
+// 示例：对共享资源的线程安全访问
+float System::GetCurrentFrameSaliencyVisual()
+{
+    std::lock_guard<std::mutex> lock(mMutexSystem); // 加锁，确保线程安全
 
+    // 直接访问 mCurrentFrame 的成员变量 mSaliencyVisual
+    return mpTracker->mCurrentFrame.GetSaliencyVisual();
+}
+#endif
+// 示例：设置共享资源的线程安全操作
+void System::SetVerboseLevel(Verbose::eLevel level)
+{
+    std::lock_guard<std::mutex> lock(mMutexSystem); // 加锁，确保线程安全
+    Verbose::th = level;
+}
 
 void System::ActivateLocalizationMode()
 {

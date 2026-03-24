@@ -186,6 +186,10 @@ public:
 
     float GetImageScale();
 
+    float GetCurrentFrameSaliencyVisual();
+    void SetVerboseLevel(Verbose::eLevel level);
+    // ========== 新增：对外暴露地图指针 ==========
+    Atlas *GetAtlas() { return mpAtlas; }
 #ifdef REGISTER_TIMES
     void InsertRectTime(double& time);
     void InsertResizeTime(double& time);

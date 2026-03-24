@@ -36,5 +36,5 @@ echo "Configuring and building ORB_SLAM3 ..."
 
 mkdir build
 cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release -DUSE_SALIENCY=ON
+cmake .. -DCMAKE_BUILD_TYPE=Release -DUSE_SALIENCY=ON -DUSE_SALIENCY_EKF=ON
 make -j8

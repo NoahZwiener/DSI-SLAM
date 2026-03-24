@@ -163,14 +163,17 @@ public:
     }
 
 #ifdef USE_SALIENCY
+    float GetSaliencyVisual() const { return mSaliencyVisual; }
     std::vector<float> mvSaliencySpatial; // 存储空间显著性
 
     std::vector<float> mvSaliencySpatialRight;
-
+    float mSaliencyVisual;
+    float mLastSaliencyVisual;
 #endif
-private:
-    //Sophus/Eigen migration
-    Sophus::SE3<float> mTcw;
+    private :
+    // Sophus/Eigen migration
+    Sophus::SE3<float>
+        mTcw;
     Eigen::Matrix<float,3,3> mRwc;
     Eigen::Matrix<float,3,1> mOw;
     Eigen::Matrix<float,3,3> mRcw;

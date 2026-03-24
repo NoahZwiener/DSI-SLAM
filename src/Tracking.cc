@@ -2398,8 +2398,10 @@ void Tracking::StereoInitialization()
                     mCurrentFrame.UnprojectStereo(i, x3D);
 #ifdef USE_SALIENCY
                     MapPoint* pNewMP = new MapPoint(x3D, pKFini, mpAtlas->GetCurrentMap(),i);
+                    
 #else
                     MapPoint* pNewMP = new MapPoint(x3D, pKFini, mpAtlas->GetCurrentMap());
+
 #endif
                     pNewMP->AddObservation(pKFini,i);
                     pKFini->AddMapPoint(pNewMP,i);
@@ -2417,7 +2419,7 @@ void Tracking::StereoInitialization()
                     Eigen::Vector3f x3D = mCurrentFrame.mvStereo3Dpoints[i];
 
 #ifdef USE_SALIENCY
-                    MapPoint *pNewMP = new MapPoint(x3D, pKFini, mpAtlas->GetCurrentMap(),i);
+                    MapPoint *pNewMP = new MapPoint(x3D, pKFini, mpAtlas->GetCurrentMap(),i);               
 #else
                     MapPoint* pNewMP = new MapPoint(x3D, pKFini, mpAtlas->GetCurrentMap());
 #endif

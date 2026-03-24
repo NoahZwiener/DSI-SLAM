@@ -35,7 +35,18 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <tf/tf.h>
 #include <tf/transform_datatypes.h>
+#include <std_msgs/Float64.h>
 #include "../../../include/Converter.h"
+#include <nav_msgs/Path.h>
+#include <Eigen/Dense>
+
+// ========== 新增：点云发布与PCL相关头文件 ==========
+#include <sensor_msgs/PointCloud2.h>
+#include <pcl_conversions/pcl_conversions.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+#include "../../../include/Atlas.h"
+#include "../../../include/MapPoint.h"
 
 using namespace std;
 
@@ -44,13 +55,41 @@ class ImageGrabber
 public:
     ros::NodeHandle nh;
     ros::Publisher pub_pose;
+
+    // ========== 新增：点云发布器与帧计数器 ==========
+    ros::Publisher pub_pointcloud;
+    int frame_counter;
+
+#ifdef USE_SALIENCY_EKF
+    ros::Publisher pub_saliency_vis;
+    ros::Publisher pub_cov_norm_vo;
+    ros::Publisher pub_path_2d; // 新增：2D轨迹发布器
+    nav_msgs::Path path_2d;     // 新增：2D轨迹对象
+#endif
     ImageGrabber(ORB_SLAM3::System *pSLAM) : mpSLAM(pSLAM), nh("~")
     {
         pub_pose = nh.advertise<geometry_msgs::PoseStamped>("CameraPose", 20);
+
+        // ========== 新增：初始化点云发布器 (发布到 /orb_slam3/point_cloud) ==========
+        pub_pointcloud = nh.advertise<sensor_msgs::PointCloud2>("/orb_slam3/point_cloud", 5);
+        frame_counter = 0;
+
+#ifdef USE_SALIENCY_EKF
+        pub_saliency_vis = nh.advertise<std_msgs::Float64>("saliency_visual", 10);
+        pub_cov_norm_vo = nh.advertise<std_msgs::Float64>("cov_norm_vo", 10);
+
+        // 新增：初始化2D轨迹发布器
+        pub_path_2d = nh.advertise<nav_msgs::Path>("path_2d", 10);
+        path_2d.header.frame_id = "map"; // 统一使用 map 坐标系便于 EKF 和 Rviz 融合
+#endif
     }
 
     void GrabStereo(const sensor_msgs::ImageConstPtr &msgLeft, const sensor_msgs::ImageConstPtr &msgRight);
     void PublishPose(cv::Mat Tcw);
+
+    // ========== 新增：发布全局点云的方法 ==========
+    void PublishPointCloud(ros::Time stamp);
+
     ORB_SLAM3::System *mpSLAM;
     bool do_rectify;
     cv::Mat M1l, M2l, M1r, M2r;
@@ -58,7 +97,7 @@ public:
 
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "RGBD");
+    ros::init(argc, argv, "STEREO");
     ros::start();
 
     if (argc != 4)
@@ -164,23 +203,75 @@ void ImageGrabber::GrabStereo(const sensor_msgs::ImageConstPtr &msgLeft, const s
         return;
     }
 
+    // ========== 修复：只进行一次追踪 ==========
+    Sophus::SE3f Tcw_SE3f;
     if (do_rectify)
     {
         cv::Mat imLeft, imRight;
         cv::remap(cv_ptrLeft->image, imLeft, M1l, M2l, cv::INTER_LINEAR);
         cv::remap(cv_ptrRight->image, imRight, M1r, M2r, cv::INTER_LINEAR);
-        mpSLAM->TrackStereo(imLeft, imRight, cv_ptrLeft->header.stamp.toSec());
+        Tcw_SE3f = mpSLAM->TrackStereo(imLeft, imRight, cv_ptrLeft->header.stamp.toSec());
     }
     else
     {
-        mpSLAM->TrackStereo(cv_ptrLeft->image, cv_ptrRight->image, cv_ptrLeft->header.stamp.toSec());
+        Tcw_SE3f = mpSLAM->TrackStereo(cv_ptrLeft->image, cv_ptrRight->image, cv_ptrLeft->header.stamp.toSec());
     }
 
+#ifdef USE_SALIENCY_EKF
+    // 1. 获取刚刚在 Tracking 线程中算出的帧级显著性
+    float S_visual = mpSLAM->GetCurrentFrameSaliencyVisual();
+
+    // 2. 根据显著性计算观测噪声协方差范数 ||R_vo||
+    double R_base_vo = 0.01;
+    double k_vo = 3.2;
+    double R_vo_norm = R_base_vo * std::exp(k_vo * (1.0 - S_visual));
+
+    // 3. 发布
+    std_msgs::Float64 msg_s_vis;
+    msg_s_vis.data = S_visual;
+    pub_saliency_vis.publish(msg_s_vis);
+
+    std_msgs::Float64 msg_r_vo;
+    msg_r_vo.data = R_vo_norm;
+    pub_cov_norm_vo.publish(msg_r_vo);
+
+    if (!Tcw_SE3f.translation().hasNaN())
+    {
+        Sophus::SE3f Twc = Tcw_SE3f.inverse();
+        Eigen::Vector3f translation = Twc.translation();
+        Eigen::Matrix3f rotation = Twc.rotationMatrix();
+
+        geometry_msgs::PoseStamped pose_2d;
+        pose_2d.header.stamp = msgLeft->header.stamp;
+        pose_2d.header.frame_id = "map";
+
+        pose_2d.pose.position.x = translation.z();
+        pose_2d.pose.position.y = -translation.x();
+        pose_2d.pose.position.z = 0.0;
+
+        Eigen::Vector3f forward_dir = rotation * Eigen::Vector3f(0, 0, 1);
+        double yaw = atan2(-forward_dir.x(), forward_dir.z());
+        pose_2d.pose.orientation = tf::createQuaternionMsgFromYaw(yaw);
+
+        path_2d.poses.push_back(pose_2d);
+        path_2d.header.stamp = msgLeft->header.stamp;
+        pub_path_2d.publish(path_2d);
+    }
+#endif
+
+    // 发布原有的3D位姿
     cv::Mat Tcw;
-    Sophus::SE3f Tcw_SE3f = mpSLAM->TrackStereo(cv_ptrLeft->image, cv_ptrRight->image, cv_ptrLeft->header.stamp.toSec());
     Eigen::Matrix4f Tcw_Matrix = Tcw_SE3f.matrix();
     cv::eigen2cv(Tcw_Matrix, Tcw);
     PublishPose(Tcw);
+
+    // ========== 新增：控制点云发布频率 (每5帧发布一次) ==========
+    frame_counter++;
+    if (frame_counter % 5 == 0)
+    {
+        PublishPointCloud(msgLeft->header.stamp);
+    }
+
     std::chrono::milliseconds tSleep(1);
     std::this_thread::sleep_for(tSleep);
 }
@@ -200,8 +291,54 @@ void ImageGrabber::PublishPose(cv::Mat Tcw)
         poseMSG.pose.orientation.y = q[1];
         poseMSG.pose.orientation.z = q[2];
         poseMSG.pose.orientation.w = q[3];
-        poseMSG.header.frame_id = "Stero";
+        poseMSG.header.frame_id = "map"; // 注意：如果你统一用 map，这里也可以改成 map
         poseMSG.header.stamp = ros::Time::now();
         pub_pose.publish(poseMSG);
     }
+}
+
+// ========== 新增：发布点云的函数实现 ==========
+// ========== 修复后的发布点云函数 ==========
+void ImageGrabber::PublishPointCloud(ros::Time stamp)
+{
+    // 确保 Atlas 初始化
+    if (!mpSLAM->GetAtlas())
+        return;
+
+    // 获取所有活动的地图点
+    std::vector<ORB_SLAM3::MapPoint *> vpMPs = mpSLAM->GetAtlas()->GetAllMapPoints();
+    if (vpMPs.empty())
+        return;
+
+    // 创建 PCL 点云
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+    cloud->reserve(vpMPs.size());
+
+    for (size_t i = 0; i < vpMPs.size(); i++)
+    {
+        ORB_SLAM3::MapPoint *pMP = vpMPs[i];
+        // 剔除坏点
+        if (pMP && !pMP->isBad())
+        {
+            // 修复点：ORB-SLAM3 使用 Eigen::Vector3f 而非 cv::Mat 来表示三维坐标
+            Eigen::Vector3f pos = pMP->GetWorldPos();
+            pcl::PointXYZ p;
+
+            // 坐标映射：ORB-SLAM3系 -> ROS标准Map系
+            // 修复点：使用 () 来访问 Eigen 向量的元素
+            p.x = pos(2);  // Z -> X
+            p.y = -pos(0); // X -> -Y
+            p.z = -pos(1); // Y -> -Z
+
+            cloud->points.push_back(p);
+        }
+    }
+
+    // 转为 ROS PointCloud2 消息并发布
+    sensor_msgs::PointCloud2 cloud_msg;
+    pcl::toROSMsg(*cloud, cloud_msg);
+    cloud_msg.header.stamp = stamp;
+    cloud_msg.header.frame_id = "map"; // 必须与 2D 轨迹以及 octomap_server 配置的 frame_id 一致
+
+    pub_pointcloud.publish(cloud_msg);
 }

@@ -31,6 +31,10 @@ else()
    message(FATAL_ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
 endif()
 
+# ================= 新增：开启显著性EKF与2D轨迹功能的宏 =================
+add_definitions(-DUSE_SALIENCY_EKF)
+# ======================================================================
+
 LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/../../../cmake_modules)
 
 find_package(OpenCV 4.2)
@@ -44,6 +48,10 @@ endif()
 find_package(Eigen3 3.1.0 REQUIRED)
 find_package(Pangolin REQUIRED)
 
+# ================= 新增：查找 PCL 库用于发布点云 =================
+find_package(PCL REQUIRED)
+# ======================================================================
+
 include_directories(
 ${PROJECT_SOURCE_DIR}
 ${PROJECT_SOURCE_DIR}/../../../
@@ -51,6 +59,7 @@ ${PROJECT_SOURCE_DIR}/../../../include
 ${PROJECT_SOURCE_DIR}/../../../include/CameraModels
 ${PROJECT_SOURCE_DIR}/../../../Thirdparty/Sophus
 ${Pangolin_INCLUDE_DIRS}
+${PCL_INCLUDE_DIRS}   # <--- 新增：包含 PCL 头文件目录
 )
 
 set(LIBS 
@@ -60,6 +69,7 @@ ${Pangolin_LIBRARIES}
 ${PROJECT_SOURCE_DIR}/../../../Thirdparty/DBoW2/lib/libDBoW2.so
 ${PROJECT_SOURCE_DIR}/../../../Thirdparty/g2o/lib/libg2o.so
 ${PROJECT_SOURCE_DIR}/../../../lib/libORB_SLAM3.so
+${PCL_LIBRARIES}      # <--- 新增：链接 PCL 库
 -lboost_system
 )
 

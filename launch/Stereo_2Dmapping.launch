@@ -1,0 +1,29 @@
+<launch>
+    <arg name="vocab_path" default="/home/nuc/orb_slam3/ORBSLAM/ORBSLAM/Vocabulary/ORBvoc.txt"/>
+    <arg name="settings_path" default="/home/nuc/orb_slam3/ORBSLAM/ORBSLAM/Examples/Stereo/RealSense_D435i.yaml"/>
+    <arg name="do_rectify" default="false"/>
+
+    <node pkg="ORB_SLAM3" type="Stereo" name="orb_slam3_stereo" output="screen" 
+          args="$(arg vocab_path) $(arg settings_path) $(arg do_rectify)">
+        
+        </node>
+
+    <node pkg="octomap_server" type="octomap_server_node" name="octomap_server" output="screen">
+        <param name="resolution" value="0.05" />
+        
+        <param name="frame_id" type="string" value="map" />
+        
+        <param name="sensor_model/max_range" value="5.0" />
+
+        <param name="pointcloud_min_z" value="0.2" />
+        <param name="pointcloud_max_z" value="1.5" />
+        <param name="occupancy_min_z" value="0.2" />
+        <param name="occupancy_max_z" value="1.5" />
+
+        <remap from="cloud_in" to="/orb_slam3/point_cloud" /> 
+    </node>
+
+    <node pkg="rviz" type="rviz" name="rviz" output="screen" 
+          args="-d $(find ORB_SLAM3)/config/slam_2d.rviz" />
+
+</launch>
