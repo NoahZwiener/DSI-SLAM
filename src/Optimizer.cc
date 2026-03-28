@@ -841,8 +841,8 @@ namespace ORB_SLAM3
         const float deltaMono = sqrt(5.991);
         const float deltaStereo = sqrt(7.815);
 #ifdef USE_SALIENCY
-        float coeficient_spatial = 0.0;
-        //cout << "PoseOpt_co: " << coeficient_spatial << endl;
+        float coeficient_spatial = pFrame->get_para_from_file();
+        cout << "PoseOpt_co: " << coeficient_spatial << endl;
 #endif
 
         {

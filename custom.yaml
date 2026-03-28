@@ -1,3 +1,3 @@
 %YAML:1.0
-
-Optimizer.Coefficient_spatial: 0.0
+Optimizer.FF_coeff: 0.1
+Optimizer.Coefficient_spatial: 0.1

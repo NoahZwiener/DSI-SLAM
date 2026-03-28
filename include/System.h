@@ -185,8 +185,9 @@ public:
     void ChangeDataset();
 
     float GetImageScale();
-
+#ifdef USE_SALIENCY_EKF
     float GetCurrentFrameSaliencyVisual();
+#endif
     void SetVerboseLevel(Verbose::eLevel level);
     // ========== 新增：对外暴露地图指针 ==========
     Atlas *GetAtlas() { return mpAtlas; }

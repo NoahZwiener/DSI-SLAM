@@ -41,7 +41,32 @@ float Frame::mfGridElementWidthInv, Frame::mfGridElementHeightInv;
 
 //For stereo fisheye matching
 cv::BFMatcher Frame::BFmatcher = cv::BFMatcher(cv::NORM_HAMMING);
-
+#ifdef USE_SALIENCY
+float Frame::get_para_from_file()
+{
+        cv::FileStorage fs;
+        float FF_coeff=0.0;
+    if (!fs.open("/home/nuc/orb_slam3/ORBSLAM/ORBSLAM/custom.yaml", cv::FileStorage::READ))
+    {
+        std::cout << "错误：无法打开或找到YAML配置文件 'custom.yaml,',失败，使用默认值 0.8" << std::endl;
+        FF_coeff=0.8;
+    }
+    // 直接读取完整键 "Optimizer.FF_coeff"
+    if (!fs["Optimizer.FF_coeff"].empty())
+    {
+        fs["Optimizer.FF_coeff"] >> FF_coeff;
+        //std::cout << "openfile sucess! FF_coeff:" << FF_coeff << std::endl;
+    }
+    else
+    {
+        FF_coeff = 0.8; // 设置默认值
+        std::cout << "警告：读取 'Optimizer.FF_coeff' 失败，使用默认值 0.8" << std::endl;
+    }
+    // 关闭文件
+    fs.release();
+    return FF_coeff;
+}
+#endif
 Frame::Frame(): mpcpi(NULL), mpImuPreintegrated(NULL), mpPrevFrame(NULL), mpImuPreintegratedFrame(NULL), mpReferenceKF(static_cast<KeyFrame*>(NULL)), mbIsSet(false), mbImuPreintegrated(false), mbHasPose(false), mbHasVelocity(false)
 {
 #ifdef REGISTER_TIMES

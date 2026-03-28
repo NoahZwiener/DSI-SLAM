@@ -169,6 +169,9 @@ public:
     std::vector<float> mvSaliencySpatialRight;
     float mSaliencyVisual;
     float mLastSaliencyVisual;
+    float get_para_from_file();
+    float FF_coeff;
+    float LBA_coeff;
 #endif
     private :
     // Sophus/Eigen migration
