@@ -217,47 +217,47 @@ void ImageGrabber::GrabStereo(const sensor_msgs::ImageConstPtr &msgLeft, const s
         Tcw_SE3f = mpSLAM->TrackStereo(cv_ptrLeft->image, cv_ptrRight->image, cv_ptrLeft->header.stamp.toSec());
     }
 
-#ifdef USE_SALIENCY_EKF
-    // 1. 获取刚刚在 Tracking 线程中算出的帧级显著性
-    float S_visual = mpSLAM->GetCurrentFrameSaliencyVisual();
+// #ifdef USE_SALIENCY_EKF
+//     // 1. 获取刚刚在 Tracking 线程中算出的帧级显著性
+//     float S_visual = mpSLAM->GetCurrentFrameSaliencyVisual();
 
-    // 2. 根据显著性计算观测噪声协方差范数 ||R_vo||
-    double R_base_vo = 0.01;
-    double k_vo = 3.2;
-    double R_vo_norm = R_base_vo * std::exp(k_vo * (1.0 - S_visual));
+//     // 2. 根据显著性计算观测噪声协方差范数 ||R_vo||
+//     double R_base_vo = 0.01;
+//     double k_vo = 3.2;
+//     double R_vo_norm = R_base_vo * std::exp(k_vo * (1.0 - S_visual));
 
-    // 3. 发布
-    std_msgs::Float64 msg_s_vis;
-    msg_s_vis.data = S_visual;
-    pub_saliency_vis.publish(msg_s_vis);
+//     // 3. 发布
+//     std_msgs::Float64 msg_s_vis;
+//     msg_s_vis.data = S_visual;
+//     pub_saliency_vis.publish(msg_s_vis);
 
-    std_msgs::Float64 msg_r_vo;
-    msg_r_vo.data = R_vo_norm;
-    pub_cov_norm_vo.publish(msg_r_vo);
+//     std_msgs::Float64 msg_r_vo;
+//     msg_r_vo.data = R_vo_norm;
+//     pub_cov_norm_vo.publish(msg_r_vo);
 
-    if (!Tcw_SE3f.translation().hasNaN())
-    {
-        Sophus::SE3f Twc = Tcw_SE3f.inverse();
-        Eigen::Vector3f translation = Twc.translation();
-        Eigen::Matrix3f rotation = Twc.rotationMatrix();
+//     if (!Tcw_SE3f.translation().hasNaN())
+//     {
+//         Sophus::SE3f Twc = Tcw_SE3f.inverse();
+//         Eigen::Vector3f translation = Twc.translation();
+//         Eigen::Matrix3f rotation = Twc.rotationMatrix();
 
-        geometry_msgs::PoseStamped pose_2d;
-        pose_2d.header.stamp = msgLeft->header.stamp;
-        pose_2d.header.frame_id = "map";
+//         geometry_msgs::PoseStamped pose_2d;
+//         pose_2d.header.stamp = msgLeft->header.stamp;
+//         pose_2d.header.frame_id = "map";
 
-        pose_2d.pose.position.x = translation.z();
-        pose_2d.pose.position.y = -translation.x();
-        pose_2d.pose.position.z = 0.0;
+//         pose_2d.pose.position.x = translation.z();
+//         pose_2d.pose.position.y = -translation.x();
+//         pose_2d.pose.position.z = 0.0;
 
-        Eigen::Vector3f forward_dir = rotation * Eigen::Vector3f(0, 0, 1);
-        double yaw = atan2(-forward_dir.x(), forward_dir.z());
-        pose_2d.pose.orientation = tf::createQuaternionMsgFromYaw(yaw);
+//         Eigen::Vector3f forward_dir = rotation * Eigen::Vector3f(0, 0, 1);
+//         double yaw = atan2(-forward_dir.x(), forward_dir.z());
+//         pose_2d.pose.orientation = tf::createQuaternionMsgFromYaw(yaw);
 
-        path_2d.poses.push_back(pose_2d);
-        path_2d.header.stamp = msgLeft->header.stamp;
-        pub_path_2d.publish(path_2d);
-    }
-#endif
+//         path_2d.poses.push_back(pose_2d);
+//         path_2d.header.stamp = msgLeft->header.stamp;
+//         pub_path_2d.publish(path_2d);
+//     }
+// #endif
 
     // 发布原有的3D位姿
     cv::Mat Tcw;

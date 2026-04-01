@@ -1193,6 +1193,17 @@ namespace ORB_SLAM3
                 num_fixedKF = 1;
             }
             vector<MapPoint *> vpMPs = pKFi->GetMapPointMatches();
+#ifdef USE_SALIENCY
+            // get saliency for each MP in the current KF
+            for (size_t i = 0; i < vpMPs.size(); i++)
+            {
+                if (vpMPs[i])
+                {
+                    float saliency = pKFi->mvSaliencySpatial[i];
+                    vpMPs[i]->mfSaliencySpatial = saliency;
+                }
+            }
+#endif
             for (vector<MapPoint *>::iterator vit = vpMPs.begin(), vend = vpMPs.end(); vit != vend; vit++)
             {
                 MapPoint *pMP = *vit;
@@ -1395,8 +1406,11 @@ namespace ORB_SLAM3
                         e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex *>(optimizer.vertex(pKFi->mnId)));
                         e->setMeasurement(obs);
                         const float &invSigma2 = pKFi->mvInvLevelSigma2[kpUn.octave];
+#ifdef USE_SALIENCY
                         e->setInformation(Eigen::Matrix2d::Identity() * invSigma2 * final_weight);
-
+#else
+                        e->setInformation(Eigen::Matrix2d::Identity() * invSigma2);
+#endif
                         g2o::RobustKernelHuber *rk = new g2o::RobustKernelHuber;
                         e->setRobustKernel(rk);
                         rk->setDelta(thHuberMono);

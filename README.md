@@ -42,6 +42,8 @@ Executables live under `Examples/<mode>/` and expect the vocabulary file, a sett
 - Stereo-Inertial (TUM-VI/EuRoC): pass left/right image folders, timestamp files, and IMU data as shown in each binary’s usage (`stereo_inertial_tum_vi`, `stereo_inertial_euroc`, etc.).
 - Live Intel RealSense: run the corresponding `*_realsense_*` executable with a RealSense YAML (requires `librealsense2`).
 
+---
+
 ## ROS examples
 ROS nodes under `Examples/ROS/ORB_SLAM3` expose the same modes when built inside a ROS workspace. Many binaries accept an optional final argument to write the estimated trajectory to disk.
 
@@ -54,10 +56,11 @@ ROS nodes under `Examples/ROS/ORB_SLAM3` expose the same modes when built inside
 
 ### Running Examples
 - Monocular:  
+
   ```bash
   roscore
-  rosrun ORB_SLAM3 Mono Vocabulary/ORBvoc.txt Examples/Monocular/EuRoC.yaml
-  rosbag play MH_04_difficult.bag /cam0/image_raw:=/camera/image_raw`
+  rosrun ORB_SLAM3 Stereo_Inertial Vocabulary/ORBvoc.txt Examples/Stereo-Inertial/RealSense_D435i.yaml false
+  rosbag play MY01.bag
   ```
 
 Replace `Mono` with `Stereo`, `RGBD`, or `Stereo_Inertial` for other modes. Update the YAML file path as needed.
@@ -67,6 +70,8 @@ Replace `Mono` with `Stereo`, `RGBD`, or `Stereo_Inertial` for other modes. Upda
   rosrun ORB_SLAM3 Mono Vocabulary/ORBvoc.txt Examples/ROS/ORB_SLAM3/Monocular.yaml /tmp/trajectory.txt
   ```
 
+---
+
 ## Saliency extraction & visualization
 1. Build the core library with `USE_SALIENCY=ON`.
 2. Point `DSI_SLAM_ROOT_DIR` to this repository. Recommended:  
@@ -74,7 +79,7 @@ Replace `Mono` with `Stereo`, `RGBD`, or `Stereo_Inertial` for other modes. Upda
 3. Export per-keypoint saliency from an image:  
    `./Examples/SaliencyDraw/build/saliency_extractor path/to/image.png /tmp/saliency.txt`
 4. Visualize it as a heatmap/3D surface:  
-   `python Examples/SaliencyDraw/draw_saliency.py path/to/image.png /tmp/saliency.txt`
+   `python3 Examples/SaliencyDraw/draw_saliency.py path/to/image.png /tmp/saliency.txt`
 
 ## Evaluation utilities
 The `evaluation/` folder contains helper scripts (ATE computation, associations) for comparing estimated trajectories against ground truth (`evaluate_ate_scale.py`, `associate.py`, etc.).

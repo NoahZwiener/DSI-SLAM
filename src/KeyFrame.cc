@@ -66,7 +66,9 @@ KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB):
 #endif
 {
     mnId=nNextId++;
-
+    //std::cout << "KeyFrame constructor: " << mnId << std::endl;
+    //std::copy(mvSaliencySpatial.begin(), mvSaliencySpatial.end(),
+    //         std::ostream_iterator<float>(std::cout, " Saliency:"));
     mGrid.resize(mnGridCols);
     if(F.Nleft != -1)  mGridRight.resize(mnGridCols);
     for(int i=0; i<mnGridCols;i++)
