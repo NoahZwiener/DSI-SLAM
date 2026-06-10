@@ -2264,6 +2264,14 @@ void LoopClosing::ResetIfRequested()
 
     }
 }
+// run GBA with weighting, only for the loop KF
+void LoopClosing::RunGlobalBundleAdjustmentWithWeighting(Map *pActiveMap, unsigned long nLoopKF)
+{
+    Verbose::PrintMess("Starting Run Global Bundle Adjustment With Weighting 1", Verbose::VERBOSITY_NORMAL);
+    bool stopFlag = false;
+    Optimizer::GlobalBundleAdjustemnt(pActiveMap, 10, &stopFlag, nLoopKF, false);
+    Verbose::PrintMess("Starting Run Global Bundle Adjustment With Weighting 2", Verbose::VERBOSITY_NORMAL);
+}
 
 void LoopClosing::RunGlobalBundleAdjustment(Map* pActiveMap, unsigned long nLoopKF)
 {  

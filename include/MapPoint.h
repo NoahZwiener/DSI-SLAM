@@ -99,7 +99,10 @@ class MapPoint
 
         ar & mfMinDistance;
         ar & mfMaxDistance;
-
+#ifdef USE_SALIENCY
+        // 空间显著性
+        ar & mfSaliencySpatial;
+#endif
     }
 
 

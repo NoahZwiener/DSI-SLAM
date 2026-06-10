@@ -66,6 +66,8 @@ public:
     void RequestReset();
     void RequestResetActiveMap(Map* pMap);
 
+    // run GBA with weighting, only for the loop KF
+    void RunGlobalBundleAdjustmentWithWeighting(Map *pActiveMap, unsigned long nLoopKF);
     // This function will run in a separate thread
     void RunGlobalBundleAdjustment(Map* pActiveMap, unsigned long nLoopKF);
 

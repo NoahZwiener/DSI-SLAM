@@ -691,7 +691,11 @@ void LocalMapping::CreateNewMapPoints()
                 continue;
 
             // Triangulation is succesfull
+#ifdef USE_SALIENCY
+            MapPoint *pMP = new MapPoint(x3D, mpCurrentKeyFrame, mpAtlas->GetCurrentMap(),i);
+#else
             MapPoint* pMP = new MapPoint(x3D, mpCurrentKeyFrame, mpAtlas->GetCurrentMap());
+#endif
             if (bPointStereo)
                 countStereo++;
             

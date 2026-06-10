@@ -148,6 +148,10 @@ add_executable(stereo_tum_vi
         Examples/Stereo/stereo_tum_vi.cc)
 target_link_libraries(stereo_tum_vi ${PROJECT_NAME})
 
+add_executable(GBA_weighting_insulate
+        Examples/Stereo/GBA_weighting_insulate.cc)
+target_link_libraries(GBA_weighting_insulate ${PROJECT_NAME})
+
 #Stereo Inertial examples
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/Stereo-Inertial)
 

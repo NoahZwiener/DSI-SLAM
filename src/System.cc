@@ -177,8 +177,9 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
 
         //usleep(10*1000*1000);
     }
-
-
+    bool IsOnlyGBA = true;
+    bool IsOpenLoopClosing = true;
+    if(!IsOnlyGBA){
     if (mSensor==IMU_STEREO || mSensor==IMU_MONOCULAR || mSensor==IMU_RGBD)
         mpAtlas->SetInertialSensor();
 
@@ -212,8 +213,10 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     //Initialize the Loop Closing thread and launch
     // mSensor!=MONOCULAR && mSensor!=IMU_MONOCULAR
     mpLoopCloser = new LoopClosing(mpAtlas, mpKeyFrameDatabase, mpVocabulary, mSensor!=MONOCULAR, activeLC); // mSensor!=MONOCULAR);
-    mptLoopClosing = new thread(&ORB_SLAM3::LoopClosing::Run, mpLoopCloser);
-
+    if (IsOpenLoopClosing)
+    {
+        mptLoopClosing = new thread(&ORB_SLAM3::LoopClosing::Run, mpLoopCloser);
+    }
     //Set pointers between threads
     mpTracker->SetLocalMapper(mpLocalMapper);
     mpTracker->SetLoopClosing(mpLoopCloser);
@@ -236,7 +239,118 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
         mpLoopCloser->mpViewer = mpViewer;
         mpViewer->both = mpFrameDrawer->both;
     }
+    }
+    else{
+        mpTracker = new Tracking(this, mpVocabulary, mpFrameDrawer, mpMapDrawer,
+                                 mpAtlas, mpKeyFrameDatabase, strSettingsFile, mSensor, settings_, strSequence);
+        mpLoopCloser = new LoopClosing(mpAtlas, mpKeyFrameDatabase, mpVocabulary, mSensor != MONOCULAR, activeLC); // mSensor!=MONOCULAR);
+        // 确保 Atlas 的当前活动地图被正确设置（Viewer 依赖此状态来绘制正确的地图）
+        Map *pActiveMap = nullptr;
+        int maxKFs = 0;
+        vector<Map *> vpMaps = mpAtlas->GetAllMaps(); // 一个 Atlas 可能包含多个 Map，尤其是在加载之前保存的 Atlas 时，mpAtlas->CreateNewMap() 会创建一个新的空 Map，我们需要找到那个包含关键帧的 Map 来激活。
+        cout << "Atlas has " << vpMaps.size() << " map(s). Searching for the active one..." << endl;
+        for (Map *pMap : vpMaps) 
+        {
+            int numKFs = pMap->GetAllKeyFrames().size();
+            cout << "  -> Map ID: " << pMap->GetId()
+                 << " | KeyFrames: " << numKFs
+                 << " | MapPoints: " << pMap->GetAllMapPoints().size() << endl;
 
+            // 找到包含关键帧最多的那个地图（过滤掉 CreateNewMap 产生的空地图）
+            if (numKFs > maxKFs)
+            {
+                maxKFs = numKFs;
+                pActiveMap = pMap;
+            }
+        }
+
+        if (pActiveMap && maxKFs > 0)
+        {
+            cout << "Setting Map ID " << pActiveMap->GetId() << " as current active map." << endl;
+            mpAtlas->ChangeMap(pActiveMap);
+            // 强制修复地图点状态 (保留之前的保险逻辑)
+            cout << "Sanitizing MapPoints for visualization..." << endl;
+            vector<MapPoint *> vpMPs = pActiveMap->GetAllMapPoints();
+            int validCount = 0;
+            for (MapPoint *pMP : vpMPs)
+            {
+                if (!pMP)
+                    continue;
+                pMP->IncreaseVisible();
+                pMP->IncreaseFound();
+                if (pMP->GetMap() != pActiveMap)
+                {
+                    pMP->UpdateMap(pActiveMap);
+                }
+                cout << "pMP saliency: " << pMP->mfSaliencySpatial << endl;
+                validCount++;
+            }
+            cout << "Sanitization complete. Valid MapPoints ready: " << validCount << endl;
+        }
+        else
+        {
+            cerr << "Error: No valid maps with KeyFrames found!" << endl;
+            exit(-1);
+        }
+        // ================= 核心新增：手动触发全局 BA =================
+        if (pActiveMap && maxKFs > 0)
+        {
+            cout << "\n=== Preparing for Global Bundle Adjustment ===" << endl;
+
+            // 【关键操作】：计算 nLoopKF (回环关键帧 ID)
+            // 遍历所有关键帧，找到最大的 mnId，然后 +1。
+            // 这样优化器会认为所有现存的边都是"旧边"，使用更严格的鲁棒核阈值，适合离线优化。
+            unsigned long nLoopKF = 0;
+            vector<KeyFrame *> vpKFs = pActiveMap->GetAllKeyFrames();
+            for (KeyFrame *pKF : vpKFs)
+            {
+                if (pKF && pKF->mnId > nLoopKF)
+                {
+                    nLoopKF = pKF->mnId;
+                }
+            }
+            nLoopKF = nLoopKF + 1; // 确保所有现存 KF 的 ID 都严格小于 nLoopKF
+
+            cout << "Max KeyFrame ID found: " << (nLoopKF - 1) << endl;
+            cout << "Setting nLoopKF to: " << nLoopKF << " (All edges will be treated as 'old edges')" << endl;
+
+            cout << "Running Global Bundle Adjustment..." << endl;
+            mpLoopCloser->RunGlobalBundleAdjustmentWithWeighting(pActiveMap, 0); // 运行带权重的全局 BA，专门针对 loop KF
+            cout << "Global Bundle Adjustment Finished!" << endl;
+            SaveKeyFrameTrajectoryEuRoC("KeyFrameTrajectory_only_GBA.txt");  //save the keyframe trajectory after optimization, for evaluation
+            // 【可选】：优化完成后，如果您希望将优化后的地图再次保存，可以在这里调用 SaveAtlas
+            // mpAtlas->Save("optimized_map.osa", FileType::BINARY_FILE);
+        }
+        // mpLoopCloser->RunGlobalBundleAdjustmentWithWeighting(pActiveMap,nLoopKF); // 运行带权重的全局 BA，专门针对 loop KF
+        //  如果您使用旧版参数读取模式
+        if(!mpFrameDrawer) mpFrameDrawer = new FrameDrawer(mpAtlas);
+        if(!mpMapDrawer) mpMapDrawer = new MapDrawer(mpAtlas, strSettingsFile, settings_);
+        mpViewer = new Viewer(this, mpFrameDrawer, mpMapDrawer, mpTracker, strSettingsFile, settings_);
+        mpViewer->Release();
+        mptViewer = new thread(&Viewer::Run, mpViewer);
+        cout << "\n=== Map Loaded and Viewer Started ===" << endl;
+        cout << "Press [Enter] in the terminal OR close the Viewer window to exit.\n"<< endl;
+        // 持续检查 Viewer 是否请求退出 (通过 Pangolin 窗口右上角的关闭按钮)
+        while (mpViewer && !mpViewer->isFinished())
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            // 可选：在终端监听回车键退出 (非阻塞方式较复杂，这里用简单提示)
+        }
+        // 6. 清理与退出
+        if (mpViewer)
+        {
+            mpViewer->RequestFinish();
+            while (!mpViewer->isFinished())
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            if (mptViewer)
+            {
+                mptViewer->join();
+                delete mptViewer;
+                mptViewer = nullptr;
+            }
+        }
+
+    }
     // Fix verbosity
     Verbose::SetTh(Verbose::VERBOSITY_QUIET);
 
@@ -541,6 +655,8 @@ void System::Shutdown()
 
     mpLocalMapper->RequestFinish();
     mpLoopCloser->RequestFinish();
+    if (mpLoopCloser)
+        mpLoopCloser->RequestFinish(); // 即使没启动，也调用以防万一
     /*if(mpViewer)
     {
         mpViewer->RequestFinish();
@@ -562,7 +678,34 @@ void System::Shutdown()
         }*/
         /*usleep(5000);
     }*/
+    cout << "Manually cleaning up bad MapPoints before saving..." << endl;
+    vector<Map *> vpMaps = GetAtlas()->GetAllMaps();
+    for (Map *pMap : vpMaps)
+    {
+        if (!pMap)
+            continue;
 
+        // 获取所有地图点
+        vector<MapPoint *> vpMPs = pMap->GetAllMapPoints();
+        int culledCount = 0;
+
+        for (MapPoint *pMP : vpMPs)
+        {
+            if (!pMP)
+                continue;
+
+            // 检查是否是坏点
+            // 注意：这里调用 isBad() 是安全的，因为此时 Tracking 和 LocalMapping 已经停止
+            if (pMP->isBad())
+            {
+                // 从地图中物理擦除该点
+                pMap->EraseMapPoint(pMP);
+                culledCount++;
+            }
+        }
+        cout << "Map ID " << pMap->GetId() << ": Culled " << culledCount << " bad MapPoints." << endl;
+    }
+    cout << "Cleanup complete. Safe to save Atlas." << endl;
     if(!mStrSaveAtlasToFile.empty())
     {
         Verbose::PrintMess("Atlas saving to file " + mStrSaveAtlasToFile, Verbose::VERBOSITY_NORMAL);
@@ -1124,15 +1267,16 @@ void System::SaveKeyFrameTrajectoryEuRoC(const string &filename)
             Sophus::SE3f Twb = pKF->GetImuPose();
             Eigen::Quaternionf q = Twb.unit_quaternion();
             Eigen::Vector3f twb = Twb.translation();
-            f << setprecision(6) << 1e9*pKF->mTimeStamp  << " " <<  setprecision(9) << twb(0) << " " << twb(1) << " " << twb(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
-
+            //f << setprecision(6) << 1e9*pKF->mTimeStamp  << " " <<  setprecision(9) << twb(0) << " " << twb(1) << " " << twb(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
+            f << setprecision(6) << pKF->mTimeStamp << " " << setprecision(9) << twb(0) << " " << twb(1) << " " << twb(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
         }
         else
         {
             Sophus::SE3f Twc = pKF->GetPoseInverse();
             Eigen::Quaternionf q = Twc.unit_quaternion();
             Eigen::Vector3f t = Twc.translation();
-            f << setprecision(6) << 1e9*pKF->mTimeStamp << " " <<  setprecision(9) << t(0) << " " << t(1) << " " << t(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
+            //f << setprecision(6) << 1e9*pKF->mTimeStamp << " " <<  setprecision(9) << t(0) << " " << t(1) << " " << t(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
+            f << setprecision(6) << pKF->mTimeStamp << " " << setprecision(9) << t(0) << " " << t(1) << " " << t(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
         }
     }
     f.close();
@@ -1464,6 +1608,54 @@ void System::SaveAtlas(int type){
             oa << strVocabularyChecksum;
             oa << mpAtlas;
             cout << "End to write save binary file" << endl;
+
+            int maxKFs = 0;
+            Map *pActiveMap = nullptr;
+            vector<Map *> vpMaps = mpAtlas->GetAllMaps(); // 一个 Atlas 可能包含多个 Map，尤其是在加载之前保存的 Atlas 时，mpAtlas->CreateNewMap() 会创建一个新的空 Map，我们需要找到那个包含关键帧的 Map 来激活。
+            cout << "Atlas has " << vpMaps.size() << " map(s). Searching for the active one..." << endl;
+            for (Map *pMap : vpMaps)
+            {
+                int numKFs = pMap->GetAllKeyFrames().size();
+                cout << "  -> Map ID: " << pMap->GetId()
+                     << " | KeyFrames: " << numKFs
+                     << " | MapPoints: " << pMap->GetAllMapPoints().size() << endl;
+
+                // 找到包含关键帧最多的那个地图（过滤掉 CreateNewMap 产生的空地图）
+                if (numKFs > maxKFs)
+                {
+                    maxKFs = numKFs;
+                    pActiveMap = pMap;
+                }
+            }
+
+            if (pActiveMap && maxKFs > 0)
+            {
+                cout << "Setting Map ID " << pActiveMap->GetId() << " as current active map." << endl;
+                mpAtlas->ChangeMap(pActiveMap);
+                // 强制修复地图点状态 (保留之前的保险逻辑)
+                cout << "Sanitizing MapPoints for visualization..." << endl;
+                vector<MapPoint *> vpMPs = pActiveMap->GetAllMapPoints();
+                int validCount = 0;
+                for (MapPoint *pMP : vpMPs)
+                {
+                    if (!pMP)
+                        continue;
+                    pMP->IncreaseVisible();
+                    pMP->IncreaseFound();
+                    if (pMP->GetMap() != pActiveMap)
+                    {
+                        pMP->UpdateMap(pActiveMap);
+                    }
+                    cout << "pMP saliency: " << pMP->mfSaliencySpatial << endl;
+                    validCount++;
+                }
+                cout << "Sanitization complete. Valid MapPoints ready: " << validCount << endl;
+            }
+            else
+            {
+                cerr << "Error: No valid maps with KeyFrames found!" << endl;
+                exit(-1);
+            }
         }
     }
 }

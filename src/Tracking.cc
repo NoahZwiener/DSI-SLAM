@@ -2570,7 +2570,11 @@ void Tracking::CreateInitialMapMonocular()
         //Create MapPoint.
         Eigen::Vector3f worldPos;
         worldPos << mvIniP3D[i].x, mvIniP3D[i].y, mvIniP3D[i].z;
+#ifdef USE_SALIENCY
+        MapPoint *pMP = new MapPoint(worldPos, pKFcur, mpAtlas->GetCurrentMap(),i);
+#else
         MapPoint* pMP = new MapPoint(worldPos,pKFcur,mpAtlas->GetCurrentMap());
+#endif
 
         pKFini->AddMapPoint(pMP,i);
         pKFcur->AddMapPoint(pMP,mvIniMatches[i]);
@@ -3319,8 +3323,11 @@ void Tracking::CreateNewKeyFrame()
                     else{
                         x3D = mCurrentFrame.UnprojectStereoFishEye(i);
                     }
-
-                    MapPoint* pNewMP = new MapPoint(x3D,pKF,mpAtlas->GetCurrentMap());
+#ifdef USE_SALIENCY
+                    MapPoint* pNewMP = new MapPoint(x3D,pKF,mpAtlas->GetCurrentMap(),i);
+#else
+                    MapPoint *pNewMP = new MapPoint(x3D, pKF, mpAtlas->GetCurrentMap());
+#endif
                     pNewMP->AddObservation(pKF,i);
 
                     //Check if it is a stereo observation in order to not

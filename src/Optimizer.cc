@@ -125,7 +125,6 @@ namespace ORB_SLAM3
 
         const float thHuber2D = sqrt(5.99);
         const float thHuber3D = sqrt(7.815);
-
         // Set MapPoint vertices
         for (size_t i = 0; i < vpMP.size(); i++)
         {
@@ -142,6 +141,9 @@ namespace ORB_SLAM3
             const map<KeyFrame *, tuple<int, int>> observations = pMP->GetObservations();
 
             int nEdges = 0;
+            float saliency = pMP->mfSaliencySpatial;
+            float final_weight = 0.0 * saliency * saliency + 1.0f;
+            cout << "size vpMP: " << vpMP.size() << "Processing MapPoint: " << i << "sailency: " << saliency << endl;
             // SET EDGES
             for (map<KeyFrame *, tuple<int, int>>::const_iterator mit = observations.begin(); mit != observations.end(); mit++)
             {
@@ -167,7 +169,7 @@ namespace ORB_SLAM3
                     e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex *>(optimizer.vertex(pKF->mnId)));
                     e->setMeasurement(obs);
                     const float &invSigma2 = pKF->mvInvLevelSigma2[kpUn.octave];
-                    e->setInformation(Eigen::Matrix2d::Identity() * invSigma2);
+                    e->setInformation(Eigen::Matrix2d::Identity() * invSigma2 * final_weight);
 
                     if (bRobust)
                     {
@@ -198,7 +200,7 @@ namespace ORB_SLAM3
                     e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex *>(optimizer.vertex(pKF->mnId)));
                     e->setMeasurement(obs);
                     const float &invSigma2 = pKF->mvInvLevelSigma2[kpUn.octave];
-                    Eigen::Matrix3d Info = Eigen::Matrix3d::Identity() * invSigma2;
+                    Eigen::Matrix3d Info = Eigen::Matrix3d::Identity() * invSigma2 * final_weight;
                     e->setInformation(Info);
 
                     if (bRobust)
@@ -239,7 +241,7 @@ namespace ORB_SLAM3
                         e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex *>(optimizer.vertex(pKF->mnId)));
                         e->setMeasurement(obs);
                         const float &invSigma2 = pKF->mvInvLevelSigma2[kp.octave];
-                        e->setInformation(Eigen::Matrix2d::Identity() * invSigma2);
+                        e->setInformation(Eigen::Matrix2d::Identity() * invSigma2 * final_weight);
 
                         g2o::RobustKernelHuber *rk = new g2o::RobustKernelHuber;
                         e->setRobustKernel(rk);
@@ -1200,7 +1202,7 @@ namespace ORB_SLAM3
                 if (vpMPs[i])
                 {
                     float saliency = pKFi->mvSaliencySpatial[i];
-                    vpMPs[i]->mfSaliencySpatial = saliency;
+                    //vpMPs[i]->mfSaliencySpatial = saliency;
                 }
             }
 #endif
