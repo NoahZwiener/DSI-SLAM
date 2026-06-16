@@ -177,8 +177,8 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
 
         //usleep(10*1000*1000);
     }
-    bool IsOnlyGBA = true;
-    bool IsOpenLoopClosing = false;
+    bool IsOnlyGBA = false;//true; // 这个标志控制是否只运行全局 BA（用于测试全局 BA 的效果和性能。如果你想在加载地图后直接进入全局 BA 优化，可以将其设置为 true。注意：如果设置为 true，系统将不会启动 Viewer 和 Loop Closing 线程，因此你将无法在优化过程中看到地图的变化，也无法进行交互。建议在调试全局 BA 或者评估优化效果时使用这个选项。
+    bool IsOpenLoopClosing = true;//false; // 这个标志控制是否启动 Loop Closing 线程。
     if(!IsOnlyGBA){
     if (mSensor==IMU_STEREO || mSensor==IMU_MONOCULAR || mSensor==IMU_RGBD)
         mpAtlas->SetInertialSensor();
@@ -318,11 +318,10 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
             mpLoopCloser->RunGlobalBundleAdjustmentWithWeighting(pActiveMap, 0); // 运行带权重的全局 BA，专门针对 loop KF
             cout << "Global Bundle Adjustment Finished!" << endl;
             SaveKeyFrameTrajectoryEuRoC("KeyFrameTrajectory_only_GBA.txt");  //save the keyframe trajectory after optimization, for evaluation
-            // 将优化后的地图再次保存，可以在这里调用 SaveAtlas
-            // mpAtlas->Save("optimized_map.osa", FileType::BINARY_FILE);
+
         }
         // mpLoopCloser->RunGlobalBundleAdjustmentWithWeighting(pActiveMap,nLoopKF); // 运行带权重的全局 BA，专门针对 loop KF
-        //  如果您使用旧版参数读取模式
+        //  如果使用旧版参数读取模式
         if(!mpFrameDrawer) mpFrameDrawer = new FrameDrawer(mpAtlas);
         if(!mpMapDrawer) mpMapDrawer = new MapDrawer(mpAtlas, strSettingsFile, settings_);
         mpViewer = new Viewer(this, mpFrameDrawer, mpMapDrawer, mpTracker, strSettingsFile, settings_);
@@ -334,7 +333,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
         while (mpViewer && !mpViewer->isFinished())
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            // 可选：在终端监听回车键退出 (非阻塞方式较复杂，这里用简单提示)
+            // 在终端监听回车键退出 (非阻塞方式较复杂，这里用简单提示)
         }
         // 6. 清理与退出
         if (mpViewer)
