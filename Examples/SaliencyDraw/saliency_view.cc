@@ -97,7 +97,7 @@ int main(int argc, char **argv)
     // 5. 导出数据
 #ifdef USE_SALIENCY
     // 只有定义了宏，才能访问 mvSaliencySpatial
-    // 注意：这里需要检查是否为空，如果你的 Frame 构造函数里没计算，这里会崩
+    // 注意：这里需要检查是否为空，如果 Frame 构造函数里没计算，这里会崩
     size_t numPoints = mFrame.mvKeys.size();
     size_t numSaliency = mFrame.mvSaliencySpatial.size();
 

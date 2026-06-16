@@ -318,7 +318,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
             mpLoopCloser->RunGlobalBundleAdjustmentWithWeighting(pActiveMap, 0); // 运行带权重的全局 BA，专门针对 loop KF
             cout << "Global Bundle Adjustment Finished!" << endl;
             SaveKeyFrameTrajectoryEuRoC("KeyFrameTrajectory_only_GBA.txt");  //save the keyframe trajectory after optimization, for evaluation
-            // 【可选】：优化完成后，如果您希望将优化后的地图再次保存，可以在这里调用 SaveAtlas
+            // 将优化后的地图再次保存，可以在这里调用 SaveAtlas
             // mpAtlas->Save("optimized_map.osa", FileType::BINARY_FILE);
         }
         // mpLoopCloser->RunGlobalBundleAdjustmentWithWeighting(pActiveMap,nLoopKF); // 运行带权重的全局 BA，专门针对 loop KF
