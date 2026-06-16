@@ -178,7 +178,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
         //usleep(10*1000*1000);
     }
     bool IsOnlyGBA = true;
-    bool IsOpenLoopClosing = true;
+    bool IsOpenLoopClosing = false;
     if(!IsOnlyGBA){
     if (mSensor==IMU_STEREO || mSensor==IMU_MONOCULAR || mSensor==IMU_RGBD)
         mpAtlas->SetInertialSensor();

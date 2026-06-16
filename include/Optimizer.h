@@ -97,8 +97,10 @@ public:
     void static InertialOptimization(Map *pMap, Eigen::Matrix3d &Rwg, double &scale, Eigen::Vector3d &bg, Eigen::Vector3d &ba, bool bMono, Eigen::MatrixXd  &covInertial, bool bFixedVel=false, bool bGauss=false, float priorG = 1e2, float priorA = 1e6);
     void static InertialOptimization(Map *pMap, Eigen::Vector3d &bg, Eigen::Vector3d &ba, float priorG = 1e2, float priorA = 1e6);
     void static InertialOptimization(Map *pMap, Eigen::Matrix3d &Rwg, double &scale);
-
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
+#ifdef USE_SALIENCY
+    float static ComputeSaliencyWeight(float coefficient_spatial, float weight_spatial);
+#endif
+        EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 };
 
 } //namespace ORB_SLAM3

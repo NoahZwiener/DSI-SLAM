@@ -45,7 +45,16 @@ namespace ORB_SLAM3
     {
         return (a.second < b.second);
     }
-
+#ifdef USE_SALIENCY
+    float Optimizer::ComputeSaliencyWeight(float coefficient_spatial, float weight_spatial)
+    {        
+        float final_weight = 1.0f + coefficient_spatial*weight_spatial*weight_spatial;
+        //float final_weight = 1.0f + coefficient_spatial * weight_spatial;
+        //float final_weight = coefficient_spatial * std::log(1.0f + weight_spatial) + 1.0f;
+        //float final_weight = coefficient_spatial * (std::exp(weight_spatial)-1.0f) + 1.0f;
+        return final_weight;
+    }
+#endif
     void Optimizer::GlobalBundleAdjustemnt(Map *pMap, int nIterations, bool *pbStopFlag, const unsigned long nLoopKF, const bool bRobust)
     {
         vector<KeyFrame *> vpKFs = pMap->GetAllKeyFrames();
@@ -141,8 +150,13 @@ namespace ORB_SLAM3
             const map<KeyFrame *, tuple<int, int>> observations = pMP->GetObservations();
 
             int nEdges = 0;
+#ifdef USE_SALIENCY
             float saliency = pMP->mfSaliencySpatial;
-            float final_weight = 0.0 * saliency * saliency + 1.0f;
+            float coefficient_spatial = 0.0f;
+            float final_weight = 1.0f;
+            cout<<"run full BA: "<<i<<"saliency: "<<saliency<<endl;
+            //float final_weight = ComputeSaliencyWeight(coefficient_spatial, saliency);
+#endif
             cout << "size vpMP: " << vpMP.size() << "Processing MapPoint: " << i << "sailency: " << saliency << endl;
             // SET EDGES
             for (map<KeyFrame *, tuple<int, int>>::const_iterator mit = observations.begin(); mit != observations.end(); mit++)
@@ -169,7 +183,13 @@ namespace ORB_SLAM3
                     e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex *>(optimizer.vertex(pKF->mnId)));
                     e->setMeasurement(obs);
                     const float &invSigma2 = pKF->mvInvLevelSigma2[kpUn.octave];
+#ifdef USE_SALIENCY
+                    //float final_weight = ComputeSaliencyWeight(coefficient_spatial, pKF->mvSaliencySpatial[leftIndex]);
+                    //cout << "Processing MapPoint " << i << " in pKF " << pKF->mnId << "saliency: " << pKF->mvSaliencySpatial[leftIndex] << endl;
                     e->setInformation(Eigen::Matrix2d::Identity() * invSigma2 * final_weight);
+#else
+                    e->setInformation(Eigen::Matrix2d::Identity() * invSigma2);
+#endif
 
                     if (bRobust)
                     {
@@ -200,7 +220,13 @@ namespace ORB_SLAM3
                     e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex *>(optimizer.vertex(pKF->mnId)));
                     e->setMeasurement(obs);
                     const float &invSigma2 = pKF->mvInvLevelSigma2[kpUn.octave];
+#ifdef USE_SALIENCY
+                    //float final_weight = ComputeSaliencyWeight(coefficient_spatial, pKF->mvSaliencySpatial[leftIndex]);
+                    //cout << "Processing MapPoint " << i << " in pKF " << pKF->mnId << "saliency: " << pKF->mvSaliencySpatial[leftIndex] << endl;
                     Eigen::Matrix3d Info = Eigen::Matrix3d::Identity() * invSigma2 * final_weight;
+#else
+                    Eigen::Matrix3d Info = Eigen::Matrix3d::Identity() * invSigma2;
+#endif
                     e->setInformation(Info);
 
                     if (bRobust)
@@ -241,7 +267,13 @@ namespace ORB_SLAM3
                         e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex *>(optimizer.vertex(pKF->mnId)));
                         e->setMeasurement(obs);
                         const float &invSigma2 = pKF->mvInvLevelSigma2[kp.octave];
+#ifdef USE_SALIENCY
+                        //float final_weight = ComputeSaliencyWeight(coefficient_spatial, pKF->mvSaliencySpatial[rightIndex]);
+                        //cout << "Processing MapPoint " << i << " in pKF " << pKF->mnId << "saliency: " << pKF->mvSaliencySpatial[rightIndex] << endl;
                         e->setInformation(Eigen::Matrix2d::Identity() * invSigma2 * final_weight);
+#else
+                        e->setInformation(Eigen::Matrix2d::Identity() * invSigma2);
+#endif
 
                         g2o::RobustKernelHuber *rk = new g2o::RobustKernelHuber;
                         e->setRobustKernel(rk);
@@ -844,7 +876,7 @@ namespace ORB_SLAM3
         const float deltaStereo = sqrt(7.815);
 #ifdef USE_SALIENCY
         float coeficient_spatial = pFrame->get_para_from_file();
-        cout << "PoseOpt_co: " << coeficient_spatial << endl;
+        //cout << "PoseOpt_co: " << coeficient_spatial << endl;
 #endif
 
         {
@@ -874,7 +906,7 @@ namespace ORB_SLAM3
                             e->setMeasurement(obs);
                             const float invSigma2 = pFrame->mvInvLevelSigma2[kpUn.octave];
 #ifdef USE_SALIENCY
-                            float weight = 1.0f + coeficient_spatial * pFrame->mvSaliencySpatial[i] * pFrame->mvSaliencySpatial[i];
+                            float weight = ComputeSaliencyWeight(coeficient_spatial, pFrame->mvSaliencySpatial[i]);
                             //cout << "PoseOpt_co: " << coeficient_spatial << " " << "SaliencySpatial:" << pFrame->mvSaliencySpatial[i] << endl;
                             e->setInformation(Eigen::Matrix2d::Identity() * invSigma2 * weight);
 #else
@@ -910,7 +942,7 @@ namespace ORB_SLAM3
                             e->setMeasurement(obs);
                             const float invSigma2 = pFrame->mvInvLevelSigma2[kpUn.octave];
 #ifdef USE_SALIENCY
-                            float weight = 1.0f + coeficient_spatial * pFrame->mvSaliencySpatial[i] * pFrame->mvSaliencySpatial[i];
+                            float weight = ComputeSaliencyWeight(coeficient_spatial, pFrame->mvSaliencySpatial[i]);
                             e->setInformation(Eigen::Matrix3d::Identity() * invSigma2 * weight);
 #else
                             e->setInformation(Eigen::Matrix3d::Identity() * invSigma2);
@@ -1202,7 +1234,7 @@ namespace ORB_SLAM3
                 if (vpMPs[i])
                 {
                     float saliency = pKFi->mvSaliencySpatial[i];
-                    //vpMPs[i]->mfSaliencySpatial = saliency;
+                    vpMPs[i]->mfSaliencySpatial = saliency;
                 }
             }
 #endif
@@ -1381,9 +1413,9 @@ namespace ORB_SLAM3
             float weight_spatial = pMP->mfSaliencySpatial;
             // weight_spatial = std::max(0.1f, weight_spatial);
             // Merge weights
-            float final_weight = 1.0f + coefficient_spatial * weight_spatial * weight_spatial;
+            float final_weight = ComputeSaliencyWeight(coefficient_spatial, weight_spatial);
             // float final_weight = weight_temporal * weight_spatial;
-            std::cout << "LocBA_co: " << coefficient_spatial <<" "<<"weight_spatial:"<<weight_spatial << std::endl;
+            //std::cout << "LocBA_co: " << coefficient_spatial <<" "<<"weight_spatial:"<<weight_spatial << std::endl;
 #else
             float final_weight = 1.0f; // No saliency
 #endif
@@ -4621,8 +4653,8 @@ namespace ORB_SLAM3
         const float thHuberMono = sqrt(5.991);
         const float thHuberStereo = sqrt(7.815);
 #ifdef USE_SALIENCY
-        float coeficient_spatial = 0.0;
-        cout << "PoseInerOptLastKF: " << coeficient_spatial<<endl;
+        float coefficient_spatial = 0.0;
+        cout << "PoseInerOptLastKF: " << coefficient_spatial<<endl;
 #endif
         {
             unique_lock<mutex> lock(MapPoint::mGlobalMutex);
@@ -4658,7 +4690,7 @@ namespace ORB_SLAM3
 
                         const float invSigma2 = pFrame->mvInvLevelSigma2[kpUn.octave] / unc2;
 #ifdef USE_SALIENCY
-                        float weight = 1.0f + coeficient_spatial * pFrame->mvSaliencySpatial[i] * pFrame->mvSaliencySpatial[i];
+                        float weight = ComputeSaliencyWeight(coefficient_spatial, pFrame->mvSaliencySpatial[i]);
                         e->setInformation(Eigen::Matrix2d::Identity() * invSigma2 * weight);
 #else
                         e->setInformation(Eigen::Matrix2d::Identity() * invSigma2);
@@ -4695,7 +4727,7 @@ namespace ORB_SLAM3
 
                         const float &invSigma2 = pFrame->mvInvLevelSigma2[kpUn.octave] / unc2;
 #ifdef USE_SALIENCY
-                        float weight = 1.0f + coeficient_spatial * pFrame->mvSaliencySpatial[i] * pFrame->mvSaliencySpatial[i];
+                        float weight = ComputeSaliencyWeight(coefficient_spatial, pFrame->mvSaliencySpatial[i]);
                         e->setInformation(Eigen::Matrix3d::Identity() * invSigma2 * weight);
 #else
                         e->setInformation(Eigen::Matrix3d::Identity() * invSigma2);
@@ -4732,7 +4764,7 @@ namespace ORB_SLAM3
 
                         const float invSigma2 = pFrame->mvInvLevelSigma2[kpUn.octave] / unc2;
 #ifdef USE_SALIENCY
-                        float weight = 1.0f + coeficient_spatial * pFrame->mvSaliencySpatial[i] * pFrame->mvSaliencySpatial[i];
+                        float weight = ComputeSaliencyWeight(coefficient_spatial, pFrame->mvSaliencySpatial[i]);
                         e->setInformation(Eigen::Matrix2d::Identity() * invSigma2 * weight);
 #else
                         e->setInformation(Eigen::Matrix2d::Identity() * invSigma2);
@@ -5025,8 +5057,8 @@ namespace ORB_SLAM3
         const float thHuberMono = sqrt(5.991);
         const float thHuberStereo = sqrt(7.815);
 #ifdef USE_SALIENCY
-        float coeficient_spatial = 0.0;
-        cout << "PoseInerOpt_co: " << coeficient_spatial<<endl;
+        float coefficient_spatial = 0.0;
+        cout << "PoseInerOpt_co: " << coefficient_spatial<<endl;
 #endif
         {
             unique_lock<mutex> lock(MapPoint::mGlobalMutex);
@@ -5061,7 +5093,7 @@ namespace ORB_SLAM3
 
                         const float invSigma2 = pFrame->mvInvLevelSigma2[kpUn.octave] / unc2;
 #ifdef USE_SALIENCY
-                        float weight = 1.0f + coeficient_spatial * pFrame->mvSaliencySpatial[i] * pFrame->mvSaliencySpatial[i];
+                        float weight = ComputeSaliencyWeight(coefficient_spatial, pFrame->mvSaliencySpatial[i]);
                         e->setInformation(Eigen::Matrix2d::Identity() * invSigma2 * weight);
                         //cout<<"PoseInerOpt_weight"<<Eigen::Matrix2d::Identity() * invSigma2 * weight<<endl;
 #else
@@ -5100,7 +5132,7 @@ namespace ORB_SLAM3
 
                         const float &invSigma2 = pFrame->mvInvLevelSigma2[kpUn.octave] / unc2;
 #ifdef USE_SALIENCY
-                        float weight = 1.0f + coeficient_spatial * pFrame->mvSaliencySpatial[i] * pFrame->mvSaliencySpatial[i];
+                        float weight = ComputeSaliencyWeight(coefficient_spatial, pFrame->mvSaliencySpatial[i]);
                         e->setInformation(Eigen::Matrix3d::Identity() * invSigma2 * weight);
                         //cout<<"PoseInerOpt_weight"<<Eigen::Matrix3d::Identity() * invSigma2 * weight<<endl;
 #else
@@ -5139,7 +5171,7 @@ namespace ORB_SLAM3
 
                         const float invSigma2 = pFrame->mvInvLevelSigma2[kpUn.octave] / unc2;
 #ifdef USE_SALIENCY
-                        float weight = 1.0f + coeficient_spatial * pFrame->mvSaliencySpatial[i] * pFrame->mvSaliencySpatial[i];
+                        float weight = ComputeSaliencyWeight(coefficient_spatial, pFrame->mvSaliencySpatial[i]);
                         e->setInformation(Eigen::Matrix2d::Identity() * invSigma2 * weight);
                         //cout<<"PoseInerOpt_weight"<<Eigen::Matrix2d::Identity() * invSigma2 * weight<<endl;
 #else

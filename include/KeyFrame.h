@@ -125,6 +125,9 @@ class KeyFrame
         serializeVectorKeyPoints<Archive>(ar, mvKeysUn, version);
         ar & const_cast<vector<float>& >(mvuRight);
         ar & const_cast<vector<float>& >(mvDepth);
+#ifdef USE_SALIENCY
+        ar & const_cast<vector<float>& >(mvSaliencySpatial); // 显著性
+#endif
         serializeMatrix<Archive>(ar,mDescriptors,version);
         // BOW
         ar & mBowVec;

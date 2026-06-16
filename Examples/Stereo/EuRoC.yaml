@@ -94,5 +94,5 @@ Viewer.ViewpointY: -5.5 #-0.7
 Viewer.ViewpointZ: -1.5 #-1.8
 Viewer.ViewpointF: 500.0
 Viewer.imageViewScale: 1.0
-System.SaveAtlasToFile: "map"
-System.LoadAtlasFromFile: "mapMH05"
+System.SaveAtlasToFile: "MH05map1"
+System.LoadAtlasFromFile: "MH05map2"
