@@ -291,7 +291,7 @@ void ImageGrabber::PublishPose(cv::Mat Tcw)
         poseMSG.pose.orientation.y = q[1];
         poseMSG.pose.orientation.z = q[2];
         poseMSG.pose.orientation.w = q[3];
-        poseMSG.header.frame_id = "map"; // 注意：如果你统一用 map，这里也可以改成 map
+        poseMSG.header.frame_id = "map"; // 注意：如果统一用 map，这里也可以改成 map
         poseMSG.header.stamp = ros::Time::now();
         pub_pose.publish(poseMSG);
     }
